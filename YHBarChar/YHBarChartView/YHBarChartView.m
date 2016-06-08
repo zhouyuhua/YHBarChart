@@ -186,8 +186,8 @@
     for (NSNumber *no in vauleArray) {
         // 只允许NSNumber类型
         NSAssert([no isKindOfClass:[NSNumber class]], @"vauleArray is only allow NSNumber class");
-        // 只允许非负数
-        NSAssert(no.doubleValue >= 0, @"vauleArray number must >= 0");
+        // 必须>=-1
+        NSAssert(no.doubleValue >= -1, @"vauleArray number must >= -1");
         
         if (no.doubleValue > self.maxVaule) {
             self.maxVaule = no.doubleValue;
@@ -200,7 +200,7 @@
         if (i < self.barViews.count) {
             // 已经有的直接设置属性
             UILabel *vauleLabel = self.vauleLabels[i];
-            if (!self.showVaule){
+            if (!self.showVaule || vaule.integerValue < 0){
                 vauleLabel.text = @"";
             } else {
                 vauleLabel.text = [NSString stringWithFormat:@"￥%@", [self strtingFormateWithDouble:vaule.doubleValue]];
@@ -226,7 +226,7 @@
             UILabel *vauleLabel = [[UILabel alloc] init];
             vauleLabel.font = [UIFont systemFontOfSize:self.fontSize];
             vauleLabel.textAlignment = NSTextAlignmentCenter;
-            if (!self.showVaule){
+            if (!self.showVaule || vaule.integerValue < 0){
                 vauleLabel.text = @"";
             } else {
                 vauleLabel.text = [NSString stringWithFormat:@"￥%@", [self strtingFormateWithDouble:vaule.doubleValue]];
@@ -245,6 +245,20 @@
             barLine.backgroundColor = self.lineColor;
             [self addSubview:barLine];
             [self.barLines addObject:barLine];
+        }
+    }
+    
+    // 隐藏多余的
+    if (self.vauleArray.count < self.barViews.count) {
+        for (NSInteger i = self.vauleArray.count; i < self.barViews.count; i++) {
+            UIView *bv = self.barViews[i];
+            bv.hidden = YES;
+            UIView *tl = self.titleLabels[i];
+            tl.hidden = YES;
+            UIView *vl = self.vauleLabels[i];
+            vl.hidden = YES;
+            UIView *bl = self.barLines[i];
+            bl.hidden = YES;
         }
     }
     
@@ -283,7 +297,11 @@
     self.xLine.frame = CGRectMake(0, size.height - titleFont.lineHeight - 0.5, size.width, 0.5);
     self.yLine.frame = CGRectMake(0, 0, 0.5, size.height - titleFont.lineHeight);
     
-    if (self.vauleArray.count <= 0 || self.maxVaule <= 0) {
+    if (self.maxVaule <= 0) {
+        self.maxVaule = 100;
+    }
+    
+    if (self.vauleArray.count <= 0) {
         return;
     }
     
@@ -299,7 +317,7 @@
         
         // 计算柱状图的初始frame
         UIView *barView = self.barViews[i];
-        barView.frame = CGRectMake(line.center.x - self.barWidth / 2, line.frame.origin.y - 5, self.barWidth, 1);
+        barView.frame = CGRectMake(line.center.x - self.barWidth / 2, line.frame.origin.y - 5, self.barWidth, 0);
         
         // 计算柱状图上方的值的初始frame
         UILabel *vauleLabel = self.vauleLabels[i];
@@ -307,6 +325,10 @@
         
         // 计算柱状图的动画最终frame
         NSNumber *vaule = self.vauleArray[i];
+        if (vaule.doubleValue < 0) {
+            continue;
+        }
+        
         CGRect barViewFrame = barView.frame;
         CGFloat maxHeight = barViewFrame.origin.y - titleFont.lineHeight;
         barViewFrame.size.height = vaule.doubleValue / self.maxVaule * maxHeight;
@@ -316,11 +338,11 @@
         CGRect vauleLabelFrame = vauleLabel.frame;
         vauleLabelFrame.origin.y = barViewFrame.origin.y - vauleLabelFrame.size.height;
         
-        // 执行动画:还有问题，以后再说
+        // 执行动画
         if (self.showWithAnime) {
             [UIView animateWithDuration:1.0 animations:^{
-                barView.frame = barViewFrame;
                 vauleLabel.frame = vauleLabelFrame;
+                barView.frame = barViewFrame;
             } completion:^(BOOL finished) {
             }];
         } else {
@@ -342,6 +364,7 @@
             UIView *view = self.barViews[i];
             // 点在柱状图的内部时通知代理
             if (CGRectContainsPoint(view.frame, point)) {
+//                NSLog(@"touch index = %ld", (long)i);
                 [self.delegate barChartView:self didClickChartViewIndex:i];
                 return;
             }
